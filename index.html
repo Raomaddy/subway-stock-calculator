@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <title>Subway Stock Calculator</title>
+  <link rel="manifest" href="#" />
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f172a;
+      --muted:#94a3b8;
+      --text:#e2e8f0;
+      --accent:#0ea5e9;
+      --accent-2:#22d3ee;
+      --ok:#10b981;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:linear-gradient(180deg,var(--bg),#020617);
+         color:var(--text);}
+    .app{max-width:900px;margin:0 auto;padding:16px 16px 84px}
+    header{display:flex;align-items:center;gap:12px;}
+    .logo{width:40px;height:40px;border-radius:12px;background:conic-gradient(from 120deg,var(--accent),var(--accent-2));box-shadow:0 8px 24px rgba(34,211,238,.25)}
+    h1{font-size:22px;margin:0}
+    p.hint{margin:6px 0 12px;color:var(--muted)}
+    .card{background:linear-gradient(180deg,var(--card),#0b1220);border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:14px;box-shadow:0 8px 30px rgba(2,6,23,.35)}
+    .row{display:grid;grid-template-columns:1.1fr .9fr .7fr;gap:10px;align-items:center}
+    .row.hdr{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.02em;margin-bottom:6px}
+    .section{margin:16px 0}
+    .section-title{font-weight:700;margin:0 0 8px}
+    input[type="text"]{width:100%;padding:12px 10px;border-radius:12px;border:1px solid rgba(148,163,184,.2);background:#0b1220;color:var(--text);
+      outline:2px solid transparent; outline-offset:2px;}
+    input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(14,165,233,.25)}
+    .pill{font-variant-numeric:tabular-nums;color:#fff;background:rgba(148,163,184,.1);padding:8px 10px;border-radius:12px;text-align:left}
+    .total{font-variant-numeric:tabular-nums;color:var(--accent-2);font-weight:700}
+    .controls{position:sticky;bottom:0;left:0;right:0;backdrop-filter:saturate(140%) blur(10px);background:rgba(2,6,23,.8);border-top:1px solid rgba(148,163,184,.15);
+      display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px}
+    .btn{appearance:none;border:none;border-radius:12px;padding:12px 14px;font-weight:700}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#001018;box-shadow:0 10px 28px rgba(14,165,233,.35)}
+    .btn.ghost{background:transparent;color:var(--text);border:1px solid rgba(148,163,184,.25)}
+    .grand{font-size:16px;font-weight:800}
+    @media (max-width:640px){
+      .row{grid-template-columns:1fr 1fr auto}
+      .row .loc{font-size:14px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>Subway Stock Calculator</h1>
+        <p class="hint">Enter values like <b>2B</b>, <b>1.5P</b>, or <b>12</b> (pieces). Works offline. Tap ⋮ → <b>Add to Home screen</b>.</p>
+      </div>
+    </header>
+    <div id="sections"></div>
+  </div>
+  <div class="controls">
+    <button class="btn ghost" id="clearBtn">Clear</button>
+    <div class="grand">Grand Total: <span id="grand">0</span></div>
+    <button class="btn primary" id="calcBtn">Calculate</button>
+  </div>
+  <script>
+  const CONVERSIONS={breads:{B:80,unit:1},gluten_free:{B:32,unit:1},wraps:{B:72,P:18,unit:1},salad:{B:24,unit:1}};
+  const ITEMS={breads:"Breads",gluten_free:"Gluten-Free Breads",wraps:"Wraps",salad:"Salad Boxes"};
+  const LOCS=["Freezer","Chiller","Back Store","Front Store"];
+  const fmt=x=>{const s=(Math.round(x*100)/100).toFixed(2).replace(/\\.00$/,"").replace(/(\\.\\d)0$/,"$1");return s||"0";};
+  function parseInput(v,itemKey){if(!v)return 0;const t=v.trim().toUpperCase();try{if(/^[-+]?\\d*\\.?\\d+\\s*[A-Z]$/.test(t)){const num=parseFloat(t);const suf=t.slice(-1);const map=CONVERSIONS[itemKey];if(suf in map)return num*map[suf];return num*map.unit;}if(/^[-+]?\\d*\\.?\\d+$/.test(t))return parseFloat(t)*CONVERSIONS[itemKey].unit;}catch(e){}return 0;}
+  const sectionsEl=document.getElementById('sections');const entryRefs={};const perLocRefs={};const totalRefs={};
+  function makeSection(key,title){const sec=document.createElement('section');sec.className='section card';const h=document.createElement('h2');h.className='section-title';h.textContent=title;sec.appendChild(h);
+    const hdr=document.createElement('div');hdr.className='row hdr';hdr.innerHTML=`<div>Location</div><div>Input</div><div>Pieces</div>`;sec.appendChild(hdr);
+    entryRefs[key]=[];perLocRefs[key]=[];LOCS.forEach(loc=>{const row=document.createElement('div');row.className='row';const locEl=document.createElement('div');locEl.className='loc';locEl.textContent=loc;
+      const inp=document.createElement('input');inp.type='text';inp.placeholder='e.g. 1.5B';const out=document.createElement('div');out.className='pill';out.textContent='0';
+      row.append(locEl,inp,out);sec.appendChild(row);entryRefs[key].push(inp);perLocRefs[key].push(out);});
+    const foot=document.createElement('div');foot.style="margin-top:6px;display:flex;gap:10px;align-items:center";const tlabel=document.createElement('div');tlabel.textContent='Total:';tlabel.style.color='var(--muted)';
+    const tval=document.createElement('div');tval.className='total';tval.textContent='0';foot.append(tlabel,tval);sec.appendChild(foot);totalRefs[key]=tval;sectionsEl.appendChild(sec);}
+  for(const [k,v] of Object.entries(ITEMS)) makeSection(k,v);
+  const grandEl=document.getElementById('grand');
+  function recalc(){let grand=0;for(const key of Object.keys(ITEMS)){let t=0;entryRefs[key].forEach((inp,i)=>{const n=parseInput(inp.value,key);perLocRefs[key][i].textContent=fmt(n);t+=n;});totalRefs[key].textContent=fmt(t);grand+=t;}
+    grandEl.textContent=fmt(grand);localStorage.setItem('subway-stock-state',JSON.stringify(getState()));}
+  function getState(){const state={};for(const key of Object.keys(ITEMS)){state[key]=entryRefs[key].map(inp=>inp.value);}return state;}
+  function setState(state){if(!state)return;for(const key of Object.keys(ITEMS)){(state[key]||[]).forEach((v,i)=>{if(entryRefs[key][i]) entryRefs[key][i].value=v;});}}
+  const deb=(fn,ms)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);}};
+  for(const key of Object.keys(ITEMS)){entryRefs[key].forEach(inp=>inp.addEventListener('input',deb(recalc,80)));}
+  document.getElementById('calcBtn').addEventListener('click',recalc);
+  document.getElementById('clearBtn').addEventListener('click',()=>{for(const key of Object.keys(ITEMS)) entryRefs[key].forEach(inp=>inp.value='');recalc();});
+  setState(JSON.parse(localStorage.getItem('subway-stock-state')));recalc();
+  (function setupPWA(){const manifest={name:"Subway Stock Calculator",short_name:"StockCalc",start_url:".",display:"standalone",background_color:"#0b1220",theme_color:"#0ea5e9",
+    icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%230ea5e9'/><stop offset='1' stop-color='%2322d3ee'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='url(%23g)'/><path d='M16 40h32M16 24h16' stroke='%23010613' stroke-width='6' stroke-linecap='round'/></svg>", type:"image/svg+xml", sizes:"64x64"}]};
+    const murl=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));document.querySelector('link[rel=\"manifest\"]').setAttribute('href',murl);
+    if('serviceWorker' in navigator){const swCode=`const CACHE='ssc-v1';self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('activate',e=>self.clients.claim());self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))})`;
+      const swUrl=URL.createObjectURL(new Blob([swCode],{type:'text/javascript'}));navigator.serviceWorker.register(swUrl).catch(()=>{});} })();
+  </script>
+</body>
+</html>
